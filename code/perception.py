@@ -13,7 +13,7 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
                 & (img[:,:,1] > rgb_thresh[1]) \
                 & (img[:,:,2] > rgb_thresh[2])
     # Index the array of zeros with the boolean array and set to 1
-    color_select[above_thresh] = 1
+    color_select[above_thresh] = 255
     # Return the binary image
     return color_select
 
@@ -77,6 +77,20 @@ def perspect_transform(img, src, dst):
     
     return warped
 
+def color_detection(img, lower = (170, 120, 0), upper = (230, 180, 60)):
+    # create NumPy arrays from the lower, upper
+    lower = np.array(lower, dtype = "uint8")
+    upper = np.array(upper, dtype = "uint8")
+
+    # find the colors within the specified boundaries and apply the mask
+    mask = cv2.inRange(img, lower, upper)
+    masked_img = cv2.bitwise_and(img, img, mask = mask)
+
+    # convert masked image to binary image
+    gray_masked_img = cv2.cvtColor(masked_img,cv2.COLOR_BGR2GRAY)
+    ret,threshold_img = cv2.threshold(gray_masked_img,1,255,cv2.THRESH_BINARY)
+
+    return threshold_img
 
 # Apply the above functions in succession and update the Rover state accordingly
 def perception_step(Rover):
@@ -102,8 +116,46 @@ def perception_step(Rover):
     # Update Rover pixel distances and angles
         # Rover.nav_dists = rover_centric_pixel_distances
         # Rover.nav_angles = rover_centric_angles
-    
- 
+
+    image = Rover.img
+
+    # Define source and destination points for perspective transform
+    dstSize = 5 
+    bottomOffset = 6
+    width = image.shape[1]
+    height = image.shape[0]
+    source = np.float32([[14, 140], [301 ,140],[200, 96], [118, 96]])
+    destination = np.float32([[width/2 - dstSize, height - bottomOffset],
+                      [width/2 + dstSize, height - bottomOffset],
+                      [width/2 + dstSize, height - 2*dstSize - bottomOffset], 
+                      [width/2 - dstSize, height - 2*dstSize - bottomOffset],
+                      ])
+
+    # Apply perspective transform
+    warpImage = perspect_transform(image,source,destination)
+
+    # Apply color threshold to identify navigable terrain/obstacles/rock samples
+    binImage = color_thresh(warpImage)
+
+    Rover.vision_image[:,:,0] = color_detection(warpImage)
+    Rover.vision_image[:,:,1] = color_detection(warpImage)
+    Rover.vision_image[:,:,2] = color_detection(warpImage)
+
+    # Convert map image pixel values to rover-centric coords
+    xpix, ypix = rover_coords(binImage)  # Convert to rover-centric coords
+
+    # Convert rover-centric pixel values to world coordinates
+    scale = 10
+    xWorld, yWorld = pix_to_world(xpix, ypix, Rover.pos[0], 
+                                Rover.pos[1], Rover.yaw, 
+                                Rover.worldmap.shape[0], scale)
+    Rover.worldmap[yWorld, xWorld, 2] += 1
+
+    distances, angles = to_polar_coords(xpix, ypix) # Convert to polar coords
+    avg_angle = np.mean(angles) # Compute the average angle
+
+    Rover.nav_dists = distances
+    Rover.nav_angles = angles
     
     
     return Rover
