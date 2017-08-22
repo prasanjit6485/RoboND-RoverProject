@@ -17,6 +17,42 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     # Return the binary image
     return color_select
 
+def color_detection(img, lower = (170, 120, 0), upper = (230, 180, 60)):
+    # create NumPy arrays from the lower, upper
+    lower = np.array(lower, dtype = "uint8")
+    upper = np.array(upper, dtype = "uint8")
+
+    # find the colors within the specified boundaries and apply the mask
+    mask = cv2.inRange(img, lower, upper)
+    masked_img = cv2.bitwise_and(img, img, mask = mask)
+
+    # convert masked image to binary image
+    gray_masked_img = cv2.cvtColor(masked_img,cv2.COLOR_BGR2GRAY)
+    ret,threshold_img = cv2.threshold(gray_masked_img,1,255,cv2.THRESH_BINARY)
+
+    return threshold_img
+
+# Morphological operation on Binary/Grayscale image
+def morphological_operation(image, operation, num_of_iterations = 1):
+  # Check if image is grayscale/binary else return 0
+  if len(image.shape) == 3:
+    return 0
+
+  # Define kernel [2x2] for morphological operation
+  kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(2,2))
+
+  # Perform morphological operation
+  if operation == 'erosion':
+    morph_image = cv2.erode(image,kernel,iterations = num_of_iterations)
+  elif operation == 'dilation':
+    morph_image = cv2.dilate(image,kernel,iterations = num_of_iterations)
+  elif operation == 'opening':
+    morph_image = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel, iterations = num_of_iterations)
+  elif operation == 'closing':
+    morph_image = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel, iterations = num_of_iterations)
+
+  return morph_image
+
 # Define a function to convert from image coords to rover coords
 def rover_coords(binary_img):
     # Identify nonzero pixels
@@ -77,21 +113,6 @@ def perspect_transform(img, src, dst):
     
     return warped
 
-def color_detection(img, lower = (170, 120, 0), upper = (230, 180, 60)):
-    # create NumPy arrays from the lower, upper
-    lower = np.array(lower, dtype = "uint8")
-    upper = np.array(upper, dtype = "uint8")
-
-    # find the colors within the specified boundaries and apply the mask
-    mask = cv2.inRange(img, lower, upper)
-    masked_img = cv2.bitwise_and(img, img, mask = mask)
-
-    # convert masked image to binary image
-    gray_masked_img = cv2.cvtColor(masked_img,cv2.COLOR_BGR2GRAY)
-    ret,threshold_img = cv2.threshold(gray_masked_img,1,255,cv2.THRESH_BINARY)
-
-    return threshold_img
-
 # Apply the above functions in succession and update the Rover state accordingly
 def perception_step(Rover):
     # Perform perception steps to update Rover()
@@ -134,28 +155,64 @@ def perception_step(Rover):
     # Apply perspective transform
     warpImage = perspect_transform(image,source,destination)
 
-    # Apply color threshold to identify navigable terrain/obstacles/rock samples
-    binImage = color_thresh(warpImage)
+    # Apply color threshold to identify navigable terrain
+    nav_bin_image = color_thresh(warpImage)
+    obstacle_bin_image = 255 - nav_bin_image
 
-    Rover.vision_image[:,:,0] = color_detection(warpImage)
-    Rover.vision_image[:,:,1] = color_detection(warpImage)
-    Rover.vision_image[:,:,2] = color_detection(warpImage)
+    # Apply color threshold to identify rock samples
+    rock_bin_image = color_detection(warpImage)
 
-    # Convert map image pixel values to rover-centric coords
-    xpix, ypix = rover_coords(binImage)  # Convert to rover-centric coords
+    # Apply morphological operation
+    morphed_image = morphological_operation(rock_bin_image, 'dilation',6)
 
-    # Convert rover-centric pixel values to world coordinates
-    scale = 10
-    xWorld, yWorld = pix_to_world(xpix, ypix, Rover.pos[0], 
-                                Rover.pos[1], Rover.yaw, 
-                                Rover.worldmap.shape[0], scale)
-    Rover.worldmap[yWorld, xWorld, 2] += 1
+    Rover.vision_image[:,:,0] = nav_bin_image
+    Rover.vision_image[:,:,1] = rock_bin_image
+    Rover.vision_image[:,:,2] = 255 - nav_bin_image
 
-    distances, angles = to_polar_coords(xpix, ypix) # Convert to polar coords
-    avg_angle = np.mean(angles) # Compute the average angle
+    if(np.mean(morphed_image) > 0.1):
+        Rover.rock_detected = True
 
-    Rover.nav_dists = distances
-    Rover.nav_angles = angles
+        # Convert map image pixel values to rover-centric coords
+        xpix, ypix = rover_coords(morphed_image)
+
+        # Convert rover-centric pixel values to world coordinates
+        scale = 10
+        xWorld, yWorld = pix_to_world(xpix, ypix, Rover.pos[0], 
+                                    Rover.pos[1], Rover.yaw, 
+                                    Rover.worldmap.shape[0], scale)
+        Rover.worldmap[yWorld, xWorld, 1] += 1
+
+        # Convert to polar coords
+        distances, angles = to_polar_coords(xpix, ypix) 
+
+        Rover.nav_dists = distances
+        Rover.nav_angles = angles
+    else:
+        Rover.rock_detected = False
+        Rover.rock_detected_first_time = True
+
+        # Convert map image pixel values to rover-centric coords
+        nav_xpix, nav_ypix = rover_coords(nav_bin_image) 
+        obstacle_xpix, obstacle_ypix = rover_coords(obstacle_bin_image)  
+
+        # Convert rover-centric pixel values to world coordinates
+        scale = 10
+        nav_xWorld, nav_yWorld = pix_to_world(nav_xpix, nav_ypix, Rover.pos[0],
+                                    Rover.pos[1], Rover.yaw, 
+                                    Rover.worldmap.shape[0], scale)
+        obstacle_xWorld, obstacle_yWorld = pix_to_world(obstacle_xpix, 
+                                    obstacle_ypix, Rover.pos[0], 
+                                    Rover.pos[1], Rover.yaw, 
+                                    Rover.worldmap.shape[0], scale)
+
+        Rover.worldmap[obstacle_yWorld, obstacle_xWorld, 0] += 1
+        Rover.worldmap[nav_yWorld, nav_xWorld, 2] += 1
+
+        # Convert to polar coords
+        distances, angles = to_polar_coords(nav_xpix, nav_ypix)
+
+        Rover.nav_dists = distances
+        Rover.nav_angles = angles
     
     
     return Rover
