@@ -45,7 +45,14 @@ def decision_step(Rover):
         else:
             # Check for Rover.mode status
             if Rover.mode == 'forward':
-                # print('Forward mode') 
+                # print('Forward mode')
+                
+                angles = Rover.nav_angles
+                negratio = float(len(angles[angles < 0]))/len(angles)
+                posratio = float(len(angles[angles > 0]))/len(angles)
+
+                print("Pos ratio: %s , Neg ratio: %s" % (posratio, negratio))
+
                 # Check the extent of navigable terrain
                 if len(Rover.nav_angles) >= Rover.stop_forward:  
                     # If mode is forward, navigable terrain looks good 
@@ -61,6 +68,21 @@ def decision_step(Rover):
                         Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi), -15, 15) - 12
                     else:
                         Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi), -15, 15)
+                    
+                    # When stuck near wall induce 4-wheel turning
+                    if Rover.vel == 0.0:
+                        if posratio >= 0.6:
+                            print("stuck, Rotate left")
+                            Rover.throttle = 0
+                            # Release the brake to allow turning
+                            Rover.brake = 0
+                            Rover.steer = 15
+                        elif negratio >= 0.6:
+                            print("Stuck, Rotate right")
+                            Rover.throttle = 0
+                            # Release the brake to allow turning
+                            Rover.brake = 0
+                            Rover.steer = -15
                 # If there's a lack of navigable terrain pixels then go to 'stop' mode
                 elif len(Rover.nav_angles) < Rover.stop_forward:
                         # Set mode to "stop" and hit the brakes!
