@@ -122,59 +122,68 @@ def pixToWorld(xpix, ypix, xpos, ypos, yaw, worldSize, scale):
     # Return the result
     return xPixWorld, yPixWorld
 
+for num in range(1,170):
+  print("\n\nDataset:%s" %num)
+  # Path to Image file
+  # imgPath = "../test_dataset/rock_dataset/IMG2/rocksample%s.jpg" % num
+  imgPath = "../test_dataset/obstacle_dataset/IMG/obstaclesample%s.jpg" % num
+  # imgPath = "../test_dataset/obstaclesample.jpg"
 
-# Path to Image file
-# imgPath = "../test_dataset/rock_dataset/IMG2/rocksample%s.jpg" % num
-imgPath = "../test_dataset/sample.jpg"
+  # Read Image
+  # image = cv2.imread(imgPath)
+  image = mpimg.imread(imgPath)
 
-# Read Image
-# image = cv2.imread(imgPath)
-image = mpimg.imread(imgPath)
+  # Define source and destination points for perspective transform
+  dstSize = 5 
+  bottomOffset = 6
+  width = image.shape[1]
+  height = image.shape[0]
+  source = np.float32([[14, 140], [301 ,140],[200, 96], [118, 96]])
+  destination = np.float32([[width/2 - dstSize, height - bottomOffset],
+                    [width/2 + dstSize, height - bottomOffset],
+                    [width/2 + dstSize, height - 2*dstSize - bottomOffset], 
+                    [width/2 - dstSize, height - 2*dstSize - bottomOffset],
+                    ])
 
-# Define source and destination points for perspective transform
-dstSize = 5 
-bottomOffset = 6
-width = image.shape[1]
-height = image.shape[0]
-source = np.float32([[14, 140], [301 ,140],[200, 96], [118, 96]])
-destination = np.float32([[width/2 - dstSize, height - bottomOffset],
-                  [width/2 + dstSize, height - bottomOffset],
-                  [width/2 + dstSize, height - 2*dstSize - bottomOffset], 
-                  [width/2 - dstSize, height - 2*dstSize - bottomOffset],
-                  ])
+  # Apply perspective transform
+  warpImage = perspectTransform(image,source,destination)
 
-# Apply perspective transform
-warpImage = perspectTransform(image,source,destination)
+  #Define color selection criteria
+  redT = 160
+  greenT = 160
+  blueT = 160
+  rgbThreshold = (redT, greenT, blueT)
 
-#Define color selection criteria
-redT = 160
-greenT = 160
-blueT = 160
-rgbThreshold = (redT, greenT, blueT)
+  # Invoke color threshold function
+  binImage = colorThresh(warpImage,rgbThreshold)
 
-# Invoke color threshold function
-binImage = colorThresh(warpImage,rgbThreshold)
+  # binImage = color_detection(warpImage)
 
-# binImage = color_detection(warpImage)
+  # Apply morphological operation
+  morphedImage = morphological_operation(binImage, 'dilation',6)
 
-# Apply morphological operation
-morphedImage = morphological_operation(binImage, 'dilation',6)
+  y = np.mean(morphedImage)
+  # print(y)
 
-y = np.mean(morphedImage)
-print(y)
+  # Convert map image pixel values to rover-centric coords
+  xpix, ypix = rover_coords(morphedImage)  # Convert to rover-centric coords
 
-# Convert map image pixel values to rover-centric coords
-xpix, ypix = rover_coords(morphedImage)  # Convert to rover-centric coords
+  distances, angles = to_polar_coords(xpix, ypix) # Convert to polar coords
+  avg_angle = np.mean(angles) # Compute the average angle
 
-distances, angles = to_polar_coords(xpix, ypix) # Convert to polar coords
-avg_angle = np.mean(angles) # Compute the average angle
+  # print(len(distances))
+  # print((angles))
+  # print(np.mean(distances))
+  # print(avg_angle)
 
-# print(len(distances))
-# print((angles))
-print(np.mean(distances))
-print(avg_angle)
+  negavg = angles[angles < 0]
+  posavg = angles[angles > 0]
 
-# Display/Plot Image
+  print(len(angles))
+  print(len(negavg))
+  print(len(posavg))
+
+# # Display/Plot Image
 # plt.subplot(1, 4, 1)
 # plt.imshow(image)
 # plt.subplot(1, 4, 2)
@@ -187,44 +196,44 @@ print(avg_angle)
 # plt.xlim(0, 160)
 # plt.show()
 
-# Rover yaw values will come as floats from 0 to 360
-# Generate a random value in this range
-# Note: you need to convert this to radians
-# before adding to pixel_angles
-roverYaw = np.random.random(1)*360
+# # Rover yaw values will come as floats from 0 to 360
+# # Generate a random value in this range
+# # Note: you need to convert this to radians
+# # before adding to pixel_angles
+# roverYaw = np.random.random(1)*360
 
-# Generate a random rover position in world coords
-# Position values will range from 20 to 180 to 
-# avoid the edges in a 200 x 200 pixel world
-roverXPos = np.random.random(1)*160 + 20
-roverYPos = np.random.random(1)*160 + 20
+# # Generate a random rover position in world coords
+# # Position values will range from 20 to 180 to 
+# # avoid the edges in a 200 x 200 pixel world
+# roverXPos = np.random.random(1)*160 + 20
+# roverYPos = np.random.random(1)*160 + 20
 
-# Generate 200 x 200 pixel worldmap
-worldmap = np.zeros((200, 200))
-scale = 10
+# # Generate 200 x 200 pixel worldmap
+# worldmap = np.zeros((200, 200))
+# scale = 10
 
-# Get navigable pixel positions in world coords
-xWorld, yWorld = pixToWorld(xpix, ypix, roverXPos, 
-                                roverYPos, roverYaw, 
-                                worldmap.shape[0], scale)
-# Add pixel positions to worldmap
-worldmap[yWorld, xWorld] += 1
-print('Xpos =', roverXPos, 'Ypos =', roverYPos, 'Yaw =', roverYaw)
+# # Get navigable pixel positions in world coords
+# xWorld, yWorld = pixToWorld(xpix, ypix, roverXPos, 
+#                                 roverYPos, roverYaw, 
+#                                 worldmap.shape[0], scale)
+# # Add pixel positions to worldmap
+# worldmap[yWorld, xWorld] += 1
+# print('Xpos =', roverXPos, 'Ypos =', roverYPos, 'Yaw =', roverYaw)
 
-# Display/Plot Image
-f, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
-f.tight_layout()
-ax1.plot(xpix, ypix, '.')
-ax1.set_title('Rover Space', fontsize=40)
-ax1.set_ylim(-160, 160)
-ax1.set_xlim(0, 160)
-ax1.tick_params(labelsize=20)
+# # Display/Plot Image
+# f, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
+# f.tight_layout()
+# ax1.plot(xpix, ypix, '.')
+# ax1.set_title('Rover Space', fontsize=40)
+# ax1.set_ylim(-160, 160)
+# ax1.set_xlim(0, 160)
+# ax1.tick_params(labelsize=20)
 
-ax2.imshow(worldmap, cmap='gray')
-ax2.set_title('World Space', fontsize=40)
-ax2.set_ylim(0, 200)
-ax2.tick_params(labelsize=20)
-ax2.set_xlim(0, 200)
-plt.subplots_adjust(left=0.1, right=1, top=0.9, bottom=0.1)
-plt.show()
+# ax2.imshow(worldmap, cmap='gray')
+# ax2.set_title('World Space', fontsize=40)
+# ax2.set_ylim(0, 200)
+# ax2.tick_params(labelsize=20)
+# ax2.set_xlim(0, 200)
+# plt.subplots_adjust(left=0.1, right=1, top=0.9, bottom=0.1)
+# plt.show()
 

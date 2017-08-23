@@ -47,6 +47,7 @@ class RoverState():
         self.roll = None # Current roll angle
         self.vel = None # Current velocity
         self.steer = 0 # Current steering angle
+        self.four_wheel_turn = 15
         self.throttle = 0 # Current throttle value
         self.brake = 0 # Current brake value
         self.nav_angles = None # Angles of navigable terrain pixels
