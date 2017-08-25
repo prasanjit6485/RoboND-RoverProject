@@ -11,7 +11,9 @@ def decision_step(Rover):
 
     # Example:
     # Check if we have vision data to make decisions with
-    if Rover.nav_angles is not None:
+    if Rover.nav_angles is not None and \
+       (Rover.pitch < 1.0 or Rover.pitch > 359.0) and \
+       (Rover.roll < 1.0 or Rover.roll > 359.0):
 
         if Rover.rock_detected:
             if Rover.rock_detected_first_time:
@@ -78,18 +80,18 @@ def decision_step(Rover):
                         negratio = float(len(angles[angles < 0]))/len(angles)
                         posratio = float(len(angles[angles > 0]))/len(angles)
 
-                        print("Pos ratio: %s , Neg ratio: %s" % (posratio, negratio))
+                        # print("Pos ratio: %s , Neg ratio: %s" % (posratio, negratio))
 
                         # Induce 4-wheel turning in the left direction
                         if posratio >= 0.6:
-                            print("stuck, Rotate left")
+                            # print("stuck, Rotate left")
                             Rover.throttle = 0
                             # Release the brake to allow turning
                             Rover.brake = 0
                             Rover.steer = 15
                         # Induce 4-wheel turning in the right direction
                         elif negratio >= 0.6:
-                            print("Stuck, Rotate right")
+                            # print("Stuck, Rotate right")
                             Rover.throttle = 0
                             # Release the brake to allow turning
                             Rover.brake = 0
