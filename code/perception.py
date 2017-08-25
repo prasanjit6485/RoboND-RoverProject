@@ -110,8 +110,10 @@ def perspect_transform(img, src, dst):
            
     M = cv2.getPerspectiveTransform(src, dst)
     warped = cv2.warpPerspective(img, M, (img.shape[1], img.shape[0]))# keep same size as input image
+
+    mask = cv2.warpPerspective(np.ones_like(img[:,:,0]), M, (img.shape[1], img.shape[0]))
     
-    return warped
+    return warped, mask
 
 # Apply the above functions in succession and update the Rover state accordingly
 def perception_step(Rover):
@@ -153,11 +155,15 @@ def perception_step(Rover):
                       ])
 
     # Apply perspective transform
-    warpImage = perspect_transform(image,source,destination)
+    warpImage, mask = perspect_transform(image,source,destination)
 
     # Apply color threshold to identify navigable terrain
     nav_bin_image = color_thresh(warpImage)
-    obstacle_bin_image = 255 - nav_bin_image
+
+    # Invert navigable terrain to identify obstacle terrain and also consider
+    # the improvise field of view from Rover camera
+    # obstacle_bin_image = 255 - nav_bin_image
+    obstacle_bin_image = np.absolute(np.float32(nav_bin_image-255)*mask) * 255
 
     # Apply color threshold to identify rock samples
     rock_bin_image = color_detection(warpImage)
@@ -165,9 +171,9 @@ def perception_step(Rover):
     # Apply morphological operation
     morphed_image = morphological_operation(rock_bin_image, 'dilation',6)
 
-    Rover.vision_image[:,:,0] = nav_bin_image
+    Rover.vision_image[:,:,0] = obstacle_bin_image
     Rover.vision_image[:,:,1] = rock_bin_image
-    Rover.vision_image[:,:,2] = 255 - nav_bin_image
+    Rover.vision_image[:,:,2] = nav_bin_image
 
     if(np.mean(morphed_image) > 0.1):
         Rover.rock_detected = True
