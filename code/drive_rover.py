@@ -19,7 +19,7 @@ import time
 
 # Import functions for perception and decision making
 from perception import perception_step
-from decision import decision_step
+from decision import decision_step, rover_home_step, rover_stuck_step
 from supporting_functions import update_rover, create_output_images
 # Initialize socketio server and Flask application 
 # (learn more at: https://python-socketio.readthedocs.io/en/latest/)
@@ -42,7 +42,9 @@ class RoverState():
         self.total_time = None # To record total duration of naviagation
         self.img = None # Current camera image
         self.pos = None # Current position (x, y)
+        self.prev_pos = None
         self.home_pos = None
+        self.prev_yaw = None
         self.home_state = True
         self.yaw = None # Current yaw angle
         self.pitch = None # Current pitch angle
@@ -85,6 +87,9 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
+        self.stuck_counter = time.time()
+        self.avoid_stuck = False
+        self.avoid_stuck_pos = None
 # Initialize our rover 
 Rover = RoverState()
 
@@ -114,17 +119,18 @@ def telemetry(sid, data):
         # Initialize / update Rover with current telemetry
         Rover, image = update_rover(Rover, data)
 
-        # Update Rover's home position
+        # Initialize Rover home position
         if Rover.home_state:
-            print("Update Rover's home position")
-            Rover.home_pos = Rover.pos
-            Rover.home_state = False
+            Rover = rover_home_step(Rover)
 
         if np.isfinite(Rover.vel):
 
             # Execute the perception and decision steps to update the Rover's state
             Rover = perception_step(Rover)
             Rover = decision_step(Rover)
+
+            # Check Rover stuck condition
+            Rover = rover_stuck_step(Rover)
 
             # Create output images to send to server
             out_image_string1, out_image_string2 = create_output_images(Rover)
