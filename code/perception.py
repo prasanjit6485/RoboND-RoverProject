@@ -17,6 +17,20 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     # Return the binary image
     return color_select
 
+def rock_thresh(img, rock_thresh=(110,110,50)):
+    # Create an array of zeros same xy size as img, but single channel
+    rock_select = np.zeros_like(img[:,:,0])
+    # Require that each pixel be above all three threshold values in RGB
+    # above_thresh will now contain a boolean array with "True"
+    # where threshold was met
+    rock_pix = (img[:,:,0] > rock_thresh[0]) \
+                & (img[:,:,1] > rock_thresh[1]) \
+                & (img[:,:,2] < rock_thresh[2])
+    # Index the array of zeros with the boolean array and set to 1
+    rock_select[rock_pix] = 255
+    # Return the binary image
+    return rock_select
+
 def color_detection(img, lower = (170, 120, 0), upper = (230, 180, 60)):
     # create NumPy arrays from the lower, upper
     lower = np.array(lower, dtype = "uint8")
@@ -144,9 +158,9 @@ def perception_step(Rover):
     obstacle_bin_image = np.absolute(np.float32(nav_bin_image-255)*mask) * 255
 
     # Apply color threshold to identify rock samples
-    rock_bin_image = color_detection(warpImage)
+    rock_bin_image = rock_thresh(warpImage)
 
-    # Apply morphological operation
+    # Apply dilation operation to enhance rock sample blob
     morphed_image = morphological_operation(rock_bin_image, 'dilation',6)
 
     Rover.vision_image[:,:,0] = obstacle_bin_image

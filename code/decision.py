@@ -1,5 +1,34 @@
 import numpy as np
+import time
 
+def rover_home_step(Rover):
+    # Update Rover's home position
+    print("Update Rover's home position")
+    Rover.home_pos = Rover.pos
+    Rover.prev_pos = Rover.pos
+    Rover.avoid_stuck_pos = Rover.pos
+    Rover.home_state = False
+
+    return Rover
+
+def rover_stuck_step(Rover):
+    # Check Rover is stuck at same position for more than 5 sec
+    if ((time.time() - Rover.stuck_counter) > 5) and Rover.avoid_stuck:
+        if (np.absolute(Rover.prev_pos[0] - Rover.pos[0]) < 0.3) and \
+            (np.absolute(Rover.prev_pos[1] - Rover.pos[1]) < 0.3):
+            print("Rover stuck")
+            Rover.prev_yaw = Rover.yaw
+            Rover.mode = 'stuck'
+        Rover.prev_pos = Rover.pos
+        Rover.stuck_counter = time.time()
+
+    # Set Rover.avoid_stuck to True when Rover's moves away from home
+    # position
+    if (np.absolute(Rover.pos[0] - Rover.avoid_stuck_pos[0]) > 1) and \
+        (np.absolute(Rover.pos[1] - Rover.avoid_stuck_pos[1]) > 1):
+        Rover.avoid_stuck = True
+
+    return Rover
 
 # This is where you can build a decision tree for determining throttle, brake and steer 
 # commands based on the output of the perception_step() function
@@ -9,11 +38,22 @@ def decision_step(Rover):
     # Here you're all set up with some basic functionality but you'll need to
     # improve on this decision tree to do a good job of navigating autonomously!
 
-    # Example:
+    # Apply 4-wheel turning for 45 degree when Rover is stuck 
+    if Rover.mode == 'stuck':
+        Rover.throttle = 0
+        # Release the brake to allow turning
+        Rover.brake = 0
+        Rover.steer = 15 # left direction, since wall crawling is right side   
+        # If Rover rotated more than 45 degree release from stuck mode
+        if np.absolute(Rover.yaw - Rover.prev_yaw) > 45:
+            Rover.mode = 'forward'
+        return Rover
+
     # Check if we have vision data to make decisions with
     if Rover.nav_angles is not None:
 
         if Rover.rock_detected:
+            # print("Rock detected")
             if Rover.rock_detected_first_time:
                 Rover.throttle = 0
                 Rover.brake = Rover.brake_set
@@ -36,14 +76,12 @@ def decision_step(Rover):
                 elif Rover.vel <= 0.5:
                     # If Rover stuck near wall while collecting Rock sample, 
                     # full throttle
-                    # ToDo: Incorporate Timer to address stuck problem
                     if Rover.vel < 0.2:
                         Rover.throttle = 1.0
                     else:
                         Rover.throttle = 0.1
                     Rover.brake = 0
                     Rover.steer = np.clip(np.mean(Rover.rock_nav_angles * 180/np.pi), -15, 15)
-                    # print("angle:%s, dist: %s" % (Rover.steer,np.amin(Rover.rock_nav_dists)))
 
             # Check if Rover's near Rock sample
             if Rover.near_sample:
@@ -120,7 +158,6 @@ def decision_step(Rover):
                                 Rover.steer = -15
                             # If Rover stuck near wall and not inducing 
                             # 4-wheel turn, full throttle
-                            # ToDo: Incorporate Timer to address stuck problem
                             else:
                                 Rover.throttle = 1.0
 
@@ -172,6 +209,9 @@ def decision_step(Rover):
     # If in a state where want to pickup a rock send pickup command
     if Rover.near_sample and Rover.vel == 0 and not Rover.picking_up:
         Rover.send_pickup = True
+        # Avoid stuck mode after pickup
+        Rover.avoid_stuck_pos = Rover.pos
+        Rover.avoid_stuck = False
     
     return Rover
 
