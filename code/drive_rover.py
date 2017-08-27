@@ -42,6 +42,8 @@ class RoverState():
         self.total_time = None # To record total duration of naviagation
         self.img = None # Current camera image
         self.pos = None # Current position (x, y)
+        self.home_pos = None
+        self.home_state = True
         self.yaw = None # Current yaw angle
         self.pitch = None # Current pitch angle
         self.roll = None # Current roll angle
@@ -52,6 +54,9 @@ class RoverState():
         self.brake = 0 # Current brake value
         self.nav_angles = None # Angles of navigable terrain pixels
         self.nav_dists = None # Distances of navigable terrain pixels
+        self.rock_nav_dists = None
+        self.rock_nav_angles = None
+        self.trun_nav_dists = None
         self.ground_truth = ground_truth_3d # Ground truth worldmap
         self.mode = 'forward' # Current mode (can be forward or stop)
         self.rock_detected = False
@@ -108,6 +113,12 @@ def telemetry(sid, data):
         global Rover
         # Initialize / update Rover with current telemetry
         Rover, image = update_rover(Rover, data)
+
+        # Update Rover's home position
+        if Rover.home_state:
+            print("Update Rover's home position")
+            Rover.home_pos = Rover.pos
+            Rover.home_state = False
 
         if np.isfinite(Rover.vel):
 

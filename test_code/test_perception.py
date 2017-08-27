@@ -166,7 +166,7 @@ for num in range(1,170):
   # print(y)
 
   # Convert map image pixel values to rover-centric coords
-  xpix, ypix = rover_coords(morphedImage)  # Convert to rover-centric coords
+  xpix, ypix = rover_coords(binImage)  # Convert to rover-centric coords
 
   distances, angles = to_polar_coords(xpix, ypix) # Convert to polar coords
   avg_angle = np.mean(angles) # Compute the average angle
@@ -179,17 +179,26 @@ for num in range(1,170):
   negavg = angles[angles < 0]
   posavg = angles[angles > 0]
 
-  print(len(angles))
-  print(len(negavg))
-  print(len(posavg))
+  # print(len(angles))
+  # print(len(negavg))
+  # print(len(posavg))
 
-# # Display/Plot Image
+  trun_binImage = binImage[:,155:165]
+
+  # Convert map image pixel values to rover-centric coords
+  xpix, ypix = rover_coords(trun_binImage)  # Convert to rover-centric coords
+
+  distances, angles = to_polar_coords(xpix, ypix) # Convert to polar coords
+  avg_dist = np.mean(distances) # Compute the average angle
+  print(avg_dist)
+
+# Display/Plot Image
 # plt.subplot(1, 4, 1)
 # plt.imshow(image)
 # plt.subplot(1, 4, 2)
 # plt.imshow(warpImage)
 # plt.subplot(1, 4, 3)
-# plt.imshow(morphedImage, cmap = 'gray')
+# plt.imshow(trun_binImage, cmap = 'gray')
 # plt.subplot(1, 4, 4)
 # plt.plot(xpix, ypix, '.')
 # plt.ylim(-160, 160)
