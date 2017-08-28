@@ -1,9 +1,12 @@
 import numpy as np
 import time
+from datetime import datetime
 
 def rover_home_step(Rover):
     # Update Rover's home position
     print("Update Rover's home position")
+    timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
+    print("Rover started exploring at %s" % timestamp)
     Rover.home_pos = Rover.pos
     Rover.prev_pos = Rover.pos
     Rover.avoid_stuck_pos = Rover.pos
@@ -30,6 +33,24 @@ def rover_stuck_step(Rover):
 
     return Rover
 
+def rock_sample_step(Rover):
+    # Check if all samples are collected 
+    if Rover.samples_collected == 6:
+        if (np.absolute(Rover.pos[0] - Rover.home_pos[0]) < 5) and \
+            (np.absolute(Rover.pos[1] - Rover.home_pos[1]) < 5):
+            Rover.mode = 'return_home'
+    
+    return Rover
+
+def limit_rover_max_vel_step(Rover, max_vel = 1200.0):
+    # Limit Rover's max velocity to 1 after 20 mins
+    if (np.round(Rover.total_time, 1) > max_vel) and Rover.max_state:
+        print("Limit Rover's maximum velocity to 1m/s")
+        Rover.max_vel = 1
+        Rover.max_state = False
+
+    return Rover
+
 # This is where you can build a decision tree for determining throttle, brake and steer 
 # commands based on the output of the perception_step() function
 def decision_step(Rover):
@@ -47,6 +68,19 @@ def decision_step(Rover):
         # If Rover rotated more than 45 degree release from stuck mode
         if np.absolute(Rover.yaw - Rover.prev_yaw) > 45:
             Rover.mode = 'forward'
+        return Rover
+
+    # If returned home, do nothing
+    if Rover.mode == 'return_home':
+        if Rover.end_state:
+            timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
+            print("Returned home at %s" % timestamp)
+            print("Rover took %s sec to complete the task" % np.round(Rover.total_time, 1))
+            Rover.end_state = False
+        Rover.throttle = 0
+        Rover.brake = Rover.brake_set
+        Rover.steer = 0
+        Rover.avoid_stuck = False
         return Rover
 
     # Check if we have vision data to make decisions with
