@@ -19,7 +19,7 @@ import time
 
 # Import functions for perception and decision making
 from perception import perception_step
-from decision import decision_step, rover_home_step, rover_stuck_step
+from decision import decision_step, rover_home_step, rover_stuck_step, rock_sample_step, limit_rover_max_vel_step
 from supporting_functions import update_rover, create_output_images
 # Initialize socketio server and Flask application 
 # (learn more at: https://python-socketio.readthedocs.io/en/latest/)
@@ -46,6 +46,7 @@ class RoverState():
         self.home_pos = None
         self.prev_yaw = None
         self.home_state = True
+        self.end_state = True
         self.yaw = None # Current yaw angle
         self.pitch = None # Current pitch angle
         self.roll = None # Current roll angle
@@ -72,6 +73,7 @@ class RoverState():
         self.stop_forward = 50 # Threshold to initiate stopping
         self.go_forward = 500 # Threshold to go forward again
         self.max_vel = 2 # Maximum velocity (meters/second)
+        self.max_state = True
         # Image output from perception step
         # Update this image to display your intermediate analysis steps
         # on screen in autonomous mode
@@ -131,6 +133,12 @@ def telemetry(sid, data):
 
             # Check Rover stuck condition
             Rover = rover_stuck_step(Rover)
+
+            # Check Rover has collected all rock samples 
+            Rover = rock_sample_step(Rover)
+
+            # Limit max velocity of Rover adter certain period
+            Rover = limit_rover_max_vel_step(Rover)
 
             # Create output images to send to server
             out_image_string1, out_image_string2 = create_output_images(Rover)
