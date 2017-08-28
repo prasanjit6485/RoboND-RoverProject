@@ -50,7 +50,7 @@ def color_detection(img, lower = (170, 120, 0), upper = (230, 180, 60)):
 def morphological_operation(image, operation, num_of_iterations = 1):
   # Check if image is grayscale/binary else return 0
   if len(image.shape) == 3:
-    return 0
+    return None
 
   # Define kernel [2x2] for morphological operation
   kernel = cv2.getStructuringElement(cv2.MORPH_CROSS,(2,2))
