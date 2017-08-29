@@ -2,23 +2,29 @@ import numpy as np
 import time
 from datetime import datetime
 
+# Initialize Rover home position
 def rover_home_step(Rover):
-    # Update Rover's home position
+    # Update Rover's home position and print current timestamp
     print("Update Rover's home position")
     timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
     print("Rover started exploring at %s" % timestamp)
     Rover.home_pos = Rover.pos
+    # Update position required for stuck condition
     Rover.prev_stuck_pos = Rover.pos
     Rover.avoid_stuck_pos = Rover.pos
+    # One-time, Set home_state flag to False
     Rover.home_state = False
 
     return Rover
 
-def rover_stuck_step(Rover):
+# Check Rover stuck condition
+def rover_stuck_step(Rover, s_radius = 0.3, t_spent = 5):
     # Check Rover is stuck at same position for more than 5 sec
-    if ((time.time() - Rover.stuck_counter) > 5) and Rover.avoid_stuck:
-        if (np.absolute(Rover.prev_stuck_pos[0] - Rover.pos[0]) < 0.3) and \
-            (np.absolute(Rover.prev_stuck_pos[1] - Rover.pos[1]) < 0.3):
+    if ((time.time() - Rover.stuck_counter) > t_spent) and Rover.avoid_stuck:
+        # Check after 5sec whether Rover is still within 0.3m of area 
+        if (np.absolute(Rover.prev_stuck_pos[0] - Rover.pos[0]) < s_radius) \
+            and \
+            (np.absolute(Rover.prev_stuck_pos[1] - Rover.pos[1]) < s_radius):
             print("Rover stuck")
             Rover.prev_stuck_yaw = Rover.yaw
             Rover.mode = 'stuck'
@@ -71,20 +77,24 @@ def rover_circular_step(Rover):
 
     return Rover
 
-def rock_sample_step(Rover):
+# Check Rover return home condition
+def rock_sample_step(Rover, home_radius = 5):
     # Check if all samples are collected 
     if Rover.samples_collected == 6:
-        if (np.absolute(Rover.pos[0] - Rover.home_pos[0]) < 5) and \
-            (np.absolute(Rover.pos[1] - Rover.home_pos[1]) < 5):
+        # Check whether rover is within 5m of radius from home position
+        if (np.absolute(Rover.pos[0] - Rover.home_pos[0]) < home_radius) and \
+            (np.absolute(Rover.pos[1] - Rover.home_pos[1]) < home_radius):
             Rover.mode = 'return_home'
     
     return Rover
 
-def limit_rover_max_vel_step(Rover, max_vel = 1200.0):
+# Limit max velocity of Rover after 20min of period
+def limit_rover_max_vel_step(Rover, time_spent = 1200.0):
     # Limit Rover's max velocity to 1 after 20 mins
-    if (np.round(Rover.total_time, 1) > max_vel) and Rover.max_state:
+    if (np.round(Rover.total_time, 1) > time_spent) and Rover.max_state:
         print("Limit Rover's maximum velocity to 1m/s")
         Rover.max_vel = 1
+        # One-time, Set max_state flag to False
         Rover.max_state = False
 
     return Rover
@@ -106,6 +116,7 @@ def decision_step(Rover):
         # If Rover rotated more than 45 degree release from stuck mode
         if np.absolute(Rover.yaw - Rover.prev_stuck_yaw) > 45:
             Rover.mode = 'forward'
+
         return Rover
 
     # Move Rover in the left direction, since Rover will move in 
@@ -118,19 +129,24 @@ def decision_step(Rover):
         if (np.absolute(Rover.pos[0] - Rover.prev_circular_pos[0]) > 1) and \
             (np.absolute(Rover.pos[1] - Rover.prev_circular_pos[1]) > 1):
             Rover.mode = 'forward'
+        
         return Rover
 
     # If returned home, do nothing
     if Rover.mode == 'return_home':
         if Rover.end_state:
+            # Print current timestamp after returning home
             timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
             print("Returned home at %s" % timestamp)
             print("Rover took %s sec to complete the task" % np.round(Rover.total_time, 1))
+            # One-time, Set end_state flag to False
             Rover.end_state = False
+        # Keep Rover in stop mode and disable stuck condition
         Rover.throttle = 0
         Rover.brake = Rover.brake_set
         Rover.steer = 0
         Rover.avoid_stuck = False
+        
         return Rover
 
     # Check if we have vision data to make decisions with
@@ -138,6 +154,8 @@ def decision_step(Rover):
 
         if Rover.rock_detected:
             # print("Rock detected")
+            # Apply full brake and steer in the direction of Rock sample
+            # Also, record which way to induce 4-wheel turn
             if Rover.rock_detected_first_time:
                 Rover.throttle = 0
                 Rover.brake = Rover.brake_set
@@ -167,7 +185,7 @@ def decision_step(Rover):
                     Rover.brake = 0
                     Rover.steer = np.clip(np.mean(Rover.rock_nav_angles * 180/np.pi), -15, 15)
 
-            # Check if Rover's near Rock sample
+            # Check if Rover's near Rock sample, Apply full brake
             if Rover.near_sample:
                 Rover.throttle = 0
                 Rover.brake = Rover.brake_set
@@ -210,7 +228,6 @@ def decision_step(Rover):
                         # wall but avoid narrow navigable terrain
                         # and when Rover velocity > 0.2
                         if Rover.vel > 0.2 and len(Rover.nav_angles) > 1500:
-                            # print("Nav pixels:%s" % len(Rover.nav_angles))
                             # Move Rover close to right side of wall
                             Rover.steer = np.clip(np.mean(Rover.nav_angles * 180/np.pi), -15, 15) - 14
                         else:
@@ -219,7 +236,7 @@ def decision_step(Rover):
                         # Check if Rover stuck near wall induce 4-wheel turning
                         if Rover.vel == 0.0:
 
-                            # Compute mean of positive angles and negative angles
+                            # Compute mean of pos. angles and neg. angles
                             # and induce 4-wheel turning in the direction of 
                             # navigable terrain (more positive angles, go left)
                             angles = Rover.nav_angles
@@ -272,7 +289,7 @@ def decision_step(Rover):
                         Rover.brake = 0
                         # Turn range is +/- 15 degrees, when stopped the next line will induce 4-wheel turning
                         Rover.steer = Rover.four_wheel_turn # Could be more clever here about which way to turn
-                        Rover.four_wheel_turn = 15
+                        Rover.four_wheel_turn = 15  # left direction, wall crawling is right side
                     # If we're stopped but see sufficient navigable terrain in front then go!
                     if len(Rover.nav_angles) >= Rover.go_forward:
                         # Set throttle back to stored value
