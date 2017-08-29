@@ -42,26 +42,26 @@ class RoverState():
         self.total_time = None # To record total duration of naviagation
         self.img = None # Current camera image
         self.pos = None # Current position (x, y)
-        self.home_pos = None        
-        self.home_state = True
-        self.end_state = True
+        self.home_pos = None # To record the position of home location       
+        self.home_state = True # Use One-time, Set home_state flag to False after intialization
+        self.end_state = True # Use One-time, Set end_state flag to False after returning
         self.yaw = None # Current yaw angle
         self.pitch = None # Current pitch angle
         self.roll = None # Current roll angle
         self.vel = None # Current velocity
         self.steer = 0 # Current steering angle
-        self.four_wheel_turn = 15
+        self.four_wheel_turn = 15 # Keep rover in left direction, since wall crawling is right side
         self.throttle = 0 # Current throttle value
         self.brake = 0 # Current brake value
         self.nav_angles = None # Angles of navigable terrain pixels
         self.nav_dists = None # Distances of navigable terrain pixels
-        self.rock_nav_dists = None
-        self.rock_nav_angles = None
-        self.trun_nav_dists = None
+        self.rock_nav_dists = None # Distances of rock sample pixels
+        self.rock_nav_angles = None # Angles of rock sample pixels
+        self.trun_nav_dists = None # Distances of truncated navigable terrain pixels
         self.ground_truth = ground_truth_3d # Ground truth worldmap
         self.mode = 'forward' # Current mode (can be forward or stop)
-        self.rock_detected = False
-        self.rock_detected_first_time = True
+        self.rock_detected = False # Set to True when rock sample detected
+        self.rock_detected_first_time = True # Set to False when rock sample detected first time
         self.throttle_set = 0.2 # Throttle setting when accelerating
         self.brake_set = 10 # Brake setting when braking
         # The stop_forward and go_forward fields below represent total count
@@ -71,7 +71,7 @@ class RoverState():
         self.stop_forward = 50 # Threshold to initiate stopping
         self.go_forward = 500 # Threshold to go forward again
         self.max_vel = 2 # Maximum velocity (meters/second)
-        self.max_state = True
+        self.max_state = True # One-time, Set max_state flag to False after 20min of period
         # Image output from perception step
         # Update this image to display your intermediate analysis steps
         # on screen in autonomous mode
@@ -87,11 +87,14 @@ class RoverState():
         self.near_sample = 0 # Will be set to telemetry value data["near_sample"]
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
-        self.stuck_counter = time.time()
-        self.prev_stuck_pos = None
-        self.prev_stuck_yaw = None
-        self.avoid_stuck = False
-        self.avoid_stuck_pos = None
+        # Stuck condtion
+        self.stuck_counter = time.time() # Initialize stuck counter
+        self.prev_stuck_pos = None # To record the current stuck position when stuck
+        self.prev_stuck_yaw = None # To record the current yaw angle when stuck  
+        self.avoid_stuck = False # Set True after moving away from home and False after returning 
+        self.avoid_stuck_pos = None # To record the stuck position during home initialization
+        # Circular condtion
+        # ToDo: Not working effectively
         self.circular_counter = time.time()
         self.avoid_circular = False
         self.avoid_circular_second_step = False
@@ -138,16 +141,18 @@ def telemetry(sid, data):
             Rover = decision_step(Rover)
 
             # Check Rover stuck condition
-            Rover = rover_stuck_step(Rover)
+            Rover = rover_stuck_step(Rover, 0.3, 5) # 0.3m of radius, 5 in sec
 
             # Check Rover circular condition
+            # ToDo: Not working effectively
             # Rover = rover_circular_step(Rover)
 
-            # Check Rover has collected all rock samples 
-            Rover = rock_sample_step(Rover)
+            # Check Rover has collected all rock samples and check whether
+            # Rover is within 5m of radius from home position
+            Rover = rock_sample_step(Rover, 5)
 
-            # Limit max velocity of Rover adter certain period
-            Rover = limit_rover_max_vel_step(Rover)
+            # Limit max velocity of Rover after 20min of period
+            Rover = limit_rover_max_vel_step(Rover, 1200.0)   # 1200 in sec
 
             # Create output images to send to server
             out_image_string1, out_image_string2 = create_output_images(Rover)

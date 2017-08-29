@@ -17,6 +17,8 @@ def color_thresh(img, rgb_thresh=(160, 160, 160)):
     # Return the binary image
     return color_select
 
+# Threshold for identifying rock sample pixels only
+# Took threshold value from Project walkthrough
 def rock_thresh(img, rock_thresh=(110,110,50)):
     # Create an array of zeros same xy size as img, but single channel
     rock_select = np.zeros_like(img[:,:,0])
@@ -31,6 +33,8 @@ def rock_thresh(img, rock_thresh=(110,110,50)):
     # Return the binary image
     return rock_select
 
+# Threshold for identifying rock sample pixels only
+# ToDo: shadow area rock samples are not detecting effectively
 def color_detection(img, lower = (170, 120, 0), upper = (230, 180, 60)):
     # create NumPy arrays from the lower, upper
     lower = np.array(lower, dtype = "uint8")
@@ -46,7 +50,7 @@ def color_detection(img, lower = (170, 120, 0), upper = (230, 180, 60)):
 
     return threshold_img
 
-# Morphological operation on Binary/Grayscale image
+# Morphological operation on rock sample binary image
 def morphological_operation(image, operation, num_of_iterations = 1):
   # Check if image is grayscale/binary else return 0
   if len(image.shape) == 3:
@@ -167,6 +171,7 @@ def perception_step(Rover):
     Rover.vision_image[:,:,1] = rock_bin_image
     Rover.vision_image[:,:,2] = nav_bin_image
 
+    # Check for rock sample pixels and ignore any false positive
     if(np.mean(morphed_image) > 0.1):
         Rover.rock_detected = True
 
@@ -202,27 +207,28 @@ def perception_step(Rover):
         Rover.worldmap[obstacle_yWorld, obstacle_xWorld, 0] += 1
         Rover.worldmap[rock_yWorld, rock_xWorld, 1] += 1
 
+    # Update distances and angles for navigable terrain pixels
+    # used for effectively maneuver rover
     # Convert navigable terrain pixels to polar coords
     distances, angles = to_polar_coords(nav_xpix, nav_ypix)
-
     Rover.nav_dists = distances
     Rover.nav_angles = angles
 
+    # Update distances and angles for rock sample pixels
+    # used for effectively maneuver rover towards rock sample
     # Convert rock pixels to polar coords
     rock_distances, rock_angles = to_polar_coords(rock_xpix, rock_ypix) 
-
     Rover.rock_nav_dists = rock_distances
     Rover.rock_nav_angles = rock_angles
 
+    # Update distances and angles for truncated navigable terrain pixels
+    # used for obstacle avoidance
     # Detect obstacles by truncating Rover's view of angle
     trun_bin_image = nav_bin_image[:,155:165]
-
     # Convert map image pixel values to rover-centric coords
     trun_xpix, trun_ypix = rover_coords(trun_bin_image)  
-
     # Convert truncate navigable terrain pixels to polar coords
     trun_distances, angles = to_polar_coords(trun_xpix, trun_ypix) 
-
     Rover.trun_nav_dists = trun_distances 
     
     
