@@ -8,7 +8,7 @@ def rover_home_step(Rover):
     timestamp = datetime.utcnow().strftime('%Y_%m_%d_%H_%M_%S_%f')[:-3]
     print("Rover started exploring at %s" % timestamp)
     Rover.home_pos = Rover.pos
-    Rover.prev_pos = Rover.pos
+    Rover.prev_stuck_pos = Rover.pos
     Rover.avoid_stuck_pos = Rover.pos
     Rover.home_state = False
 
@@ -17,12 +17,12 @@ def rover_home_step(Rover):
 def rover_stuck_step(Rover):
     # Check Rover is stuck at same position for more than 5 sec
     if ((time.time() - Rover.stuck_counter) > 5) and Rover.avoid_stuck:
-        if (np.absolute(Rover.prev_pos[0] - Rover.pos[0]) < 0.3) and \
-            (np.absolute(Rover.prev_pos[1] - Rover.pos[1]) < 0.3):
+        if (np.absolute(Rover.prev_stuck_pos[0] - Rover.pos[0]) < 0.3) and \
+            (np.absolute(Rover.prev_stuck_pos[1] - Rover.pos[1]) < 0.3):
             print("Rover stuck")
-            Rover.prev_yaw = Rover.yaw
+            Rover.prev_stuck_yaw = Rover.yaw
             Rover.mode = 'stuck'
-        Rover.prev_pos = Rover.pos
+        Rover.prev_stuck_pos = Rover.pos
         Rover.stuck_counter = time.time()
 
     # Set Rover.avoid_stuck to True when Rover's moves away from home
@@ -30,6 +30,44 @@ def rover_stuck_step(Rover):
     if (np.absolute(Rover.pos[0] - Rover.avoid_stuck_pos[0]) > 1) and \
         (np.absolute(Rover.pos[1] - Rover.avoid_stuck_pos[1]) > 1):
         Rover.avoid_stuck = True
+
+    return Rover
+
+# ToDo: Not working properly, need to implement fitting or RANSAC based
+def rover_circular_step(Rover):
+    # Check Rover is moving in circular
+    if((time.time() - Rover.circular_counter) > 10) and Rover.avoid_circular:
+        if np.round(Rover.prev_circular_vel,1) == np.float32(Rover.max_vel):
+            print("First step done : %s" % np.round(Rover.prev_circular_vel,1))
+            print("%s,%s" %(Rover.pos[0],Rover.pos[1]))
+            # Set true to check whether rover is moving in circular motion
+            Rover.check_circular = True
+            Rover.prev_circular_pos = Rover.pos
+            Rover.avoid_circular_second_step = False
+        else:
+            Rover.check_circular = False
+        Rover.prev_circular_vel = Rover.vel
+        Rover.circular_counter = time.time()
+
+    if Rover.check_circular:
+        # print("Check Rover is in circular ?")
+        if (np.absolute(Rover.pos[0] - Rover.prev_circular_pos[0]) > 0.2) and \
+            (np.absolute(Rover.pos[1] - Rover.prev_circular_pos[1]) > 0.2):
+            Rover.avoid_circular_second_step = True
+        if (np.absolute(Rover.pos[0] - Rover.prev_circular_pos[0]) < 0.2) and \
+            (np.absolute(Rover.pos[1] - Rover.prev_circular_pos[1]) < 0.2) and\
+            Rover.avoid_circular_second_step:
+            print("Rover in Circular motion")
+            Rover.mode = 'circular'
+            Rover.check_circular = False
+            Rover.avoid_circular_second_step = False
+            # Rover.circular_counter = time.time()
+    
+    # Set Rover.avoid_stuck to True when Rover's moves away from home
+    # position
+    if (np.absolute(Rover.pos[0] - Rover.home_pos[0]) > 1) and \
+        (np.absolute(Rover.pos[1] - Rover.home_pos[1]) > 1):
+        Rover.avoid_circular = True
 
     return Rover
 
@@ -66,7 +104,19 @@ def decision_step(Rover):
         Rover.brake = 0
         Rover.steer = 15 # left direction, since wall crawling is right side   
         # If Rover rotated more than 45 degree release from stuck mode
-        if np.absolute(Rover.yaw - Rover.prev_yaw) > 45:
+        if np.absolute(Rover.yaw - Rover.prev_stuck_yaw) > 45:
+            Rover.mode = 'forward'
+        return Rover
+
+    # Move Rover in the left direction, since Rover will move in 
+    # clock-wise direction due to right side wall crawling
+    if Rover.mode == 'circular':
+        Rover.throttle = 0
+        # Release the brake to allow turning
+        Rover.brake = 0
+        Rover.steer = 15 # left direction, since wall crawling is right side
+        if (np.absolute(Rover.pos[0] - Rover.prev_circular_pos[0]) > 1) and \
+            (np.absolute(Rover.pos[1] - Rover.prev_circular_pos[1]) > 1):
             Rover.mode = 'forward'
         return Rover
 

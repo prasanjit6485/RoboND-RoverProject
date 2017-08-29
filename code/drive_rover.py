@@ -19,7 +19,7 @@ import time
 
 # Import functions for perception and decision making
 from perception import perception_step
-from decision import decision_step, rover_home_step, rover_stuck_step, rock_sample_step, limit_rover_max_vel_step
+from decision import decision_step, rover_home_step, rover_stuck_step, rover_circular_step, rock_sample_step, limit_rover_max_vel_step
 from supporting_functions import update_rover, create_output_images
 # Initialize socketio server and Flask application 
 # (learn more at: https://python-socketio.readthedocs.io/en/latest/)
@@ -42,9 +42,7 @@ class RoverState():
         self.total_time = None # To record total duration of naviagation
         self.img = None # Current camera image
         self.pos = None # Current position (x, y)
-        self.prev_pos = None
-        self.home_pos = None
-        self.prev_yaw = None
+        self.home_pos = None        
         self.home_state = True
         self.end_state = True
         self.yaw = None # Current yaw angle
@@ -90,8 +88,16 @@ class RoverState():
         self.picking_up = 0 # Will be set to telemetry value data["picking_up"]
         self.send_pickup = False # Set to True to trigger rock pickup
         self.stuck_counter = time.time()
+        self.prev_stuck_pos = None
+        self.prev_stuck_yaw = None
         self.avoid_stuck = False
         self.avoid_stuck_pos = None
+        self.circular_counter = time.time()
+        self.avoid_circular = False
+        self.avoid_circular_second_step = False
+        self.prev_circular_vel = 0
+        self.check_circular = False
+        self.prev_circular_pos = None
 # Initialize our rover 
 Rover = RoverState()
 
@@ -133,6 +139,9 @@ def telemetry(sid, data):
 
             # Check Rover stuck condition
             Rover = rover_stuck_step(Rover)
+
+            # Check Rover circular condition
+            # Rover = rover_circular_step(Rover)
 
             # Check Rover has collected all rock samples 
             Rover = rock_sample_step(Rover)
