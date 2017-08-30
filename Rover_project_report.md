@@ -7,6 +7,8 @@
 [image3]: ./test_dataset/rocksample.jpg
 [image4]: ./test_dataset/perspective_transform.png
 [image5]: ./test_dataset/color_thresholding.png
+[telemetry]: ./misc/telemetry.jpg
+[perception]: ./misc/perception.jpg
 
 ![alt text][image1]
 
@@ -61,6 +63,19 @@ In process_image() function, following steps I have performed to map pixels to i
 
 #### 1. Fill in the `perception_step()` (at the bottom of the `perception.py` script) and `decision_step()` (in `decision.py`) functions in the autonomous mapping scripts and an explanation is provided in the writeup of how and why these functions were modified as they were.
 
+Before explaning about perception step and decision step, I have made some modification in telemetry() and below is basic flowchart for telemetry()
+
+![alt text][telemetry]
+
+rover_home_step() function is to initialize Rover's home location and takes place one time. I have added limit_rover_max_vel_step() functionality to limit the speed of Rover to track revisited rock samples specifically in low light condition.
+
+Below is the flowchart for perception_step()
+
+![alt text][perception]
+
+I have added dilation operation to enhance rock samples and reduce any false positive while detecting rock samples. To improve the fidelity, update world map only when Rover's roll and pitch is within 0.5 degree. With more testing we can vary the parameter to improve the fidelity overall. I have updated distances and angles individually for navigable terrain, rock samples and obstacles which will be utilized in decision_step to make necessary decsion. I have truncated the image of warped image to 10 pixels (5 pixels from middle section) and compute distances required for obstacle/wall avoidance. Again with more testing we can vary the parameter to improve the accuracy of obstacle/wall. All the necessary parameters are update in Rover object and pass it to decision_step().
+
+Below is the flowchart for decision_step()
 
 #### 2. Launching in autonomous mode your rover can navigate and map autonomously.  Explain your results and how you might improve them in your writeup.  
 
@@ -81,3 +96,5 @@ Following are my conclusions where I can improve the code:
 2) Rover is unable to visit hidden places due to lack of light condition. Instead of considering RGB model, I can process the image in HSV model.
 3) After couple of testing, I found out there is one place near home location where Rover moves in circular motion (even after wall crawling implementation) and was not able to exit the circular motion. Need to implement fitting based algorithm/RANSAC algorithm to collect all coordinates and identify whether Rover is moving in circular motion.
 4) Also, need to implement path finding algorithm (A star search algorithm) to return home and collect rock samples.
+
+In summary, I was able to meet the passing requirements (60% fidelity and 40% mapped) for the Rover's project. Overall it was fun and challenging.
