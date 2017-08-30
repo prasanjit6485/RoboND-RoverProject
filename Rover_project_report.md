@@ -73,7 +73,7 @@ Before explaning about perception step and decision step, I have made some modif
 
 rover_home_step() function is to initialize Rover's home location which is required while returning home and takes place one time. Also, update position required for stuck condition.
 
-rover_stuck_step() function is to check Rover's is stuck at same position for more than 5sec. If true, set Rover.mode = 'stuck' and record the yaw angle such that Rover will induce 4-wheel turn when it exceeds 45 degree from previous recorded yaw angle. The rover rotates in left direction since wall crawling is right side. This needs to be changed if we set wall crawling to left side. Also, instead of checking Rover's same exact position, I have increased the radius to 0.3m such that Rover is checking approximate position. With more testing we can vary the parameter to increase the accuracy of stuck condition.
+rover_stuck_step() function is to check Rover's is stuck at same position for more than 5sec. If true, set Rover.mode = 'stuck' and record the yaw angle such that Rover will induce 4-wheel turn until it exceeds 45 degree from previous recorded yaw angle. The rover rotates in left direction since wall crawling is right side. This needs to be changed if we set wall crawling to left side. Also, instead of checking Rover's same exact position, I have increased the radius to 0.3m such that Rover is checking approximate position. With more testing we can vary the parameter to increase the accuracy of stuck condition.
 
 rock_sample_step() function is to check Rover has collected all rock samples and check whether Rover is within 5m of radius from home position. If true, set Rover.mode = 'return_home'. I have never worked on path finding algorithm but if we implement A star search algorithm or any other path finding algorithm, we can change the radius parameter for more accuracy.
 
@@ -97,21 +97,31 @@ Rover can either be from following 5 states:
 
 (v)   rock_detected
 
-I have divided the decision_step() in three flowchart for better viewing purpose. Below is the flowchart when Rover's mode is either in stuck or return_home state.
+I have divided the decision_step() in four flowchart for better viewing purpose. Below is the flowchart when Rover's mode is either in stuck or return_home state.
 
 ![alt text][decision1]
+
+When Rover is in stuck state, keep rotating until it exceeds 45 degree from previous recorded yaw angle in rover_stuck_step() function. 
+
+When Rover is in return_home state, record total time and be in that state until the application is closed.
 
 Below is the flowchart when Rover is in rock_detected state.
 
 ![alt text][decision2]
 
+The main objective when Rover is in rock_detected state is to move effectively at velocity of 0.5m/s towards rock samples and when stuck may set throttle to 1 depending on the velocity of rover.
+
 Below is the flowchart when Rover's mode is in forward state.
 
 ![alt text][decision3]
 
+I have added one extra feature out here apart from udacity base code is when rover is stuck (velocity == 0) adjust the steer angle depending on navigable terrain angles to work smoothly or set throttle to 1.
+
 Below is the flowchart when Rover's mode is in stop state.
 
 ![alt text][decision4]
+
+I have added one extra feature out here apart from udacity base code is to steer cleverly.
 
 #### 2. Launching in autonomous mode your rover can navigate and map autonomously.  Explain your results and how you might improve them in your writeup.  
 
