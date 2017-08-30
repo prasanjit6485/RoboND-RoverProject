@@ -43,3 +43,16 @@ Color thresholding (top grid: Rock sample image, bottom grid: Obstacle sample im
 ![alt text][image5]
 
 #### 2. Populate the `process_image()` function with the appropriate analysis steps to map pixels identifying navigable terrain, obstacles and rock samples into a worldmap.  Run `process_image()` on your test data using the `moviepy` functions provided to create video output of your result. 
+
+In process_image() function, following steps I have performed to map pixels to idetify navigable terrain and obstacles into a worldmap and create video using moviepy function.
+
+1) Define source and destination points for perspective transform
+2) Apply perspective transform for mapping purpose and create warped mask image
+3) Apply color threshold to identify navigable terrain/obstacles/rock samples
+4) Convert thresholded image pixel values to rover-centric coords
+5) Convert rover-centric pixel values to world coords
+6) Update worldmap (to be displayed on left side of video)
+7) Create output image consisting of original image, warped image and worldmap
+8) Finally create video using moviepy function
+
+![Output sample](./output/jupyter_mapping.gif)
