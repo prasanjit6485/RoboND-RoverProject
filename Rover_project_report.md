@@ -56,3 +56,28 @@ In process_image() function, following steps I have performed to map pixels to i
 8) Finally create video using moviepy function
 
 ![Output sample](./output/jupyter_mapping.gif)
+
+### Autonomous Navigation and Mapping
+
+#### 1. Fill in the `perception_step()` (at the bottom of the `perception.py` script) and `decision_step()` (in `decision.py`) functions in the autonomous mapping scripts and an explanation is provided in the writeup of how and why these functions were modified as they were.
+
+
+#### 2. Launching in autonomous mode your rover can navigate and map autonomously.  Explain your results and how you might improve them in your writeup.  
+
+I have posted a video online https://www.youtube.com/watch?v=x8kZY2MCl70 where Rover search and pick-up all rock samples and return home successfully. I am running Roversim on MacOS with screen resolution as 1024x768 and graphic quality as Good. 
+
+Following are my conclusion with rover launching in autonomous mode:
+1) Rover was able to navigate effectively in the direction of rock samples.
+2) Rover was able to induce 4-wheel turn effectively.
+3) Rover was able to come out of stuck state near wall or near obstacle or even sometime while collecting rock sample by incorporating 45 degree turn when rover is stuck at one place for more than 5 sec.
+4) Rover was able to improve fidelity by updating map when Rover's roll and pitch is within 0.5 degree.
+5) Rover was able to detect and avoid obstacles effectively by limiting the Rover's field of view.
+6) Rover was effectively crawling towards right side of the wall to collect rock samples and avoid circular motion when navigable terrain is very wide.
+7) Rover was effectively avoid wall crawling when navigable terrain is very narrow to avoid bumps and improve fidelity.
+8) Rover was able to return home when Rover is within 5m of radius from home location.
+
+Following are my conclusions where I can improve the code:
+1) Rover can avoid the area where it has already mapped successfully and collected all rock samples.
+2) Rover is unable to visit hidden places due to lack of light condition. Instead of considering RGB model, I can process the image in HSV model.
+3) After couple of testing, I found out there is one place near home location where Rover moves in circular motion (even after wall crawling implementation) and was not able to exit the circular motion. Need to implement fitting based algorithm/RANSAC algorithm to collect all coordinates and identify whether Rover is moving in circular motion.
+4) Also, need to implement path finding algorithm (A star search algorithm) to return home and collect rock samples.
